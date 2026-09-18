@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "notes": "This is the causal-mechanism graph the reasoning engine walks. Each edge names a directional ecological relationship between two tracked variables, in plain language, with a pointer to which knowledge_base.json ids substantiate it. The reasoning engine never invents a new edge at answer time - it can only cite edges declared here, which keeps 'multi-metric reasoning' auditable instead of an LLM improvising causal claims.",
+  "variables": [
+    {"key": "soil_ph", "label": "Soil pH", "unit": null, "category": "soil"},
+    {"key": "soil_organic_carbon", "label": "Soil Organic Carbon", "unit": "%", "category": "soil"},
+    {"key": "soil_moisture", "label": "Soil Moisture", "unit": "qualitative or %", "category": "soil"},
+    {"key": "land_use", "label": "Land Use / Land Cover", "unit": "categorical", "category": "land"},
+    {"key": "crop_type", "label": "Crop Type / Cropping System", "unit": "categorical", "category": "land"},
+    {"key": "habitat_diversity", "label": "Habitat / Structural Diversity", "unit": "qualitative", "category": "biodiversity"},
+    {"key": "species_richness", "label": "Species Richness", "unit": "qualitative or count", "category": "biodiversity"},
+    {"key": "temperature", "label": "Temperature", "unit": "°C", "category": "climate"},
+    {"key": "rainfall", "label": "Rainfall", "unit": "mm or qualitative", "category": "climate"},
+    {"key": "water_availability", "label": "Water Availability", "unit": "qualitative", "category": "water"},
+    {"key": "pollution", "label": "Pollution", "unit": "qualitative", "category": "human_impact"},
+    {"key": "deforestation", "label": "Deforestation / Habitat Loss", "unit": "qualitative", "category": "human_impact"}
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "soil_organic_carbon",
+      "to": "species_richness",
+      "relationship": "Soil organic carbon feeds microbial and invertebrate communities directly and improves plant productivity indirectly, raising the resource base that supports higher trophic diversity.",
+      "supporting_kb": ["kb001", "kb002", "kb003"]
+    },
+    {
+      "id": "e2",
+      "from": "rainfall",
+      "to": "soil_moisture",
+      "relationship": "Rainfall is the primary input to soil moisture; low or erratic rainfall directly lowers moisture availability, especially in semi-arid soils with low organic carbon (which hold less water).",
+      "supporting_kb": ["kb008", "kb009"]
+    },
+    {
+      "id": "e3",
+      "from": "soil_moisture",
+      "to": "species_richness",
+      "relationship": "Soil moisture constrains which plant and soil-faunal species can survive at a site; chronic moisture stress filters out moisture-sensitive species, narrowing richness.",
+      "supporting_kb": ["kb008", "kb010"]
+    },
+    {
+      "id": "e4",
+      "from": "land_use",
+      "to": "habitat_diversity",
+      "relationship": "Converting structurally complex land cover (forest, agroforestry, mixed cropping) to uniform monoculture removes vertical and horizontal habitat structure that many species depend on.",
+      "supporting_kb": ["kb004", "kb005", "kb011"]
+    },
+    {
+      "id": "e5",
+      "from": "habitat_diversity",
+      "to": "species_richness",
+      "relationship": "More structurally and compositionally diverse habitat supports more ecological niches, generally supporting more species - though the effect of patch fragmentation specifically (as opposed to habitat amount) is scientifically contested.",
+      "supporting_kb": ["kb006", "kb011"]
+    },
+    {
+      "id": "e6",
+      "from": "crop_type",
+      "to": "soil_organic_carbon",
+      "relationship": "Continuous monoculture with bare-soil periods depletes soil organic carbon over time; cover cropping, intercropping, or agroforestry keeps living roots in the ground and adds residue, building carbon back up.",
+      "supporting_kb": ["kb001", "kb002", "kb003", "kb004", "kb005"]
+    },
+    {
+      "id": "e7",
+      "from": "deforestation",
+      "to": "habitat_diversity",
+      "relationship": "Removing woody/perennial vegetation eliminates structural habitat layers and increases edge exposure and erosion, degrading remaining habitat quality even where some vegetation remains.",
+      "supporting_kb": ["kb008", "kb009"]
+    },
+    {
+      "id": "e8",
+      "from": "pollution",
+      "to": "water_availability",
+      "relationship": "Nutrient and sediment pollution reduce usable clean water and can trigger algal blooms that further degrade aquatic habitat quality; vegetated buffers intercept this pollution before it reaches waterways.",
+      "supporting_kb": ["kb007"]
+    },
+    {
+      "id": "e9",
+      "from": "water_availability",
+      "to": "species_richness",
+      "relationship": "Clean, adequate water availability is a baseline requirement for aquatic and riparian species; pollution or scarcity directly filters which species can persist.",
+      "supporting_kb": ["kb007"]
+    },
+    {
+      "id": "e10",
+      "from": "temperature",
+      "to": "soil_moisture",
+      "relationship": "Higher temperatures increase evapotranspiration, drawing down soil moisture faster for a given amount of rainfall, compounding drought stress in already low-rainfall regions.",
+      "supporting_kb": ["kb008", "kb009"]
+    },
+    {
+      "id": "e11",
+      "from": "soil_ph",
+      "to": "soil_organic_carbon",
+      "relationship": "Extreme soil pH suppresses microbial and root activity, slowing the biological processes that build and stabilize soil organic carbon.",
+      "supporting_kb": ["kb012"]
+    },
+    {
+      "id": "e12",
+      "from": "soil_organic_carbon",
+      "to": "water_availability",
+      "relationship": "Soil organic carbon improves soil aggregate structure and water-holding capacity, so higher SOC lets a soil retain more plant-available water from a given rainfall event.",
+      "supporting_kb": ["kb010"]
+    }
+  ]
+}

@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Darukaa — Field Reasoning Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560;9..144,680&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #101a10;
+    --bg-panel: #17231a;
+    --bg-panel-alt: #1e2c20;
+    --bg-input: #1a2618;
+    --ink: #ece7d9;
+    --ink-dim: #a7b39f;
+    --ink-faint: #6f7c6a;
+    --line: rgba(236, 231, 217, 0.12);
+    --line-strong: rgba(236, 231, 217, 0.22);
+    --lichen: #8fbf6f;
+    --lichen-dim: #5f8a4c;
+    --ochre: #d9a441;
+    --rust: #c1633a;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f1e8;
+      --bg-panel: #ffffff;
+      --bg-panel-alt: #ece8db;
+      --bg-input: #ffffff;
+      --ink: #16210f;
+      --ink-dim: #45503f;
+      --ink-faint: #7c8672;
+      --line: rgba(22, 33, 15, 0.12);
+      --line-strong: rgba(22, 33, 15, 0.24);
+      --lichen: #4c7a37;
+      --lichen-dim: #3a5f29;
+      --ochre: #a9701c;
+      --rust: #a34423;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f1e8; --bg-panel: #ffffff; --bg-panel-alt: #ece8db; --bg-input: #ffffff;
+    --ink: #16210f; --ink-dim: #45503f; --ink-faint: #7c8672;
+    --line: rgba(22, 33, 15, 0.12); --line-strong: rgba(22, 33, 15, 0.24);
+    --lichen: #4c7a37; --lichen-dim: #3a5f29; --ochre: #a9701c; --rust: #a34423;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  a { color: var(--lichen); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  header.top {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-bottom: 22px; margin-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  header.top .kicker {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em;
+    color: var(--lichen); display: flex; align-items: center; gap: 8px;
+  }
+  header.top .kicker .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lichen); display:inline-block; }
+  header.top h1 {
+    font-family: var(--font-display); font-weight: 680; font-optical-sizing: auto;
+    font-size: clamp(28px, 4vw, 40px); margin: 2px 0 0; letter-spacing: -0.01em;
+  }
+  header.top p.sub {
+    color: var(--ink-dim); font-size: 15px; max-width: 62ch; margin: 4px 0 0;
+  }
+
+  .grid {
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 20px; align-items: start;
+  }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--bg-panel); border: 1px solid var(--line);
+    border-radius: 14px; overflow: hidden;
+  }
+  .panel-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  }
+  .panel-head h2 {
+    font-family: var(--font-display); font-weight: 560; font-size: 18px; margin: 0;
+  }
+  .panel-head .hint { font-size: 12px; color: var(--ink-faint); font-family: var(--font-mono); }
+
+  /* --- Conversation panel --- */
+  #chatlog {
+    padding: 18px; display: flex; flex-direction: column; gap: 14px;
+    max-height: 480px; overflow-y: auto;
+  }
+  .msg { max-width: 92%; }
+  .msg.user { align-self: flex-end; text-align: right; }
+  .msg .bubble {
+    display: inline-block; text-align: left; padding: 10px 14px; border-radius: 10px;
+    font-size: 14.5px; line-height: 1.55; white-space: pre-wrap;
+  }
+  .msg.user .bubble { background: var(--lichen-dim); color: #f4f8ef; border-bottom-right-radius: 3px; }
+  .msg.system .bubble { background: var(--bg-panel-alt); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+  .msg .role {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    margin-bottom: 4px; text-transform: none;
+  }
+
+  .composer { border-top: 1px solid var(--line); padding: 14px 18px 18px; }
+  .mode-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+  .mode-toggle button {
+    font-family: var(--font-mono); font-size: 12px; padding: 6px 10px; border-radius: 7px;
+    border: 1px solid var(--line); background: transparent; color: var(--ink-dim); cursor: pointer;
+  }
+  .mode-toggle button.active { background: var(--bg-panel-alt); color: var(--lichen); border-color: var(--line-strong); }
+
+  #textInputRow { display: flex; gap: 8px; }
+  #textInput {
+    flex: 1; background: var(--bg-input); color: var(--ink); border: 1px solid var(--line-strong);
+    border-radius: 9px; padding: 10px 12px; font-family: var(--font-body); font-size: 14.5px; resize: none;
+  }
+  #textInput:focus { outline: 2px solid var(--lichen); outline-offset: 1px; }
+  button.send {
+    background: var(--lichen); color: #0e170c; border: none; border-radius: 9px;
+    padding: 0 18px; font-family: var(--font-body); font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  button.send:hover { background: #a2d17f; }
+  button.send:disabled { opacity: 0.5; cursor: default; }
+
+  .example-row { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-dim);
+    border: 1px dashed var(--line-strong); border-radius: 20px; padding: 5px 11px; cursor: pointer; background: transparent;
+  }
+  .chip:hover { border-color: var(--lichen); color: var(--lichen); }
+
+  .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; padding: 4px 0 12px; }
+  .formgrid label { grid-column: span 1; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-dim); }
+  .formgrid label span.lbl { font-family: var(--font-mono); font-size: 11px; text-transform: none; color: var(--ink-faint); }
+  .formgrid input, .formgrid select {
+    background: var(--bg-input); color: var(--ink); border: 1px solid var(--line-strong);
+    border-radius: 7px; padding: 7px 9px; font-family: var(--font-body); font-size: 13.5px;
+  }
+  .formgrid .wide { grid-column: 1 / -1; }
+
+  /* --- Reasoning trace panel: soil-horizon motif --- */
+  .horizon { border-bottom: 1px solid var(--line); }
+  .horizon:last-child { border-bottom: none; }
+  .horizon-head {
+    display: flex; align-items: center; gap: 10px; padding: 12px 18px; cursor: default;
+  }
+  .horizon-tag {
+    font-family: var(--font-mono); font-size: 11px; color: var(--bg);
+    background: var(--lichen); border-radius: 5px; padding: 2px 7px; letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+  .horizon-head h3 { font-family: var(--font-display); font-weight: 560; font-size: 15px; margin: 0; }
+  .horizon-head .desc { font-size: 12px; color: var(--ink-faint); margin-left: auto; text-align: right; }
+  .horizon-body { padding: 0 18px 16px 18px; }
+  .horizon-empty { color: var(--ink-faint); font-size: 13px; padding: 4px 0 10px; }
+
+  .varchip {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono);
+    font-size: 12px; background: var(--bg-panel-alt); border: 1px solid var(--line);
+    border-radius: 7px; padding: 4px 9px; margin: 3px 6px 3px 0;
+  }
+  .varchip b { color: var(--lichen); font-weight: 500; }
+
+  .evidence-card {
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; margin: 8px 0;
+    background: var(--bg-panel-alt);
+  }
+  .evidence-card .title { font-weight: 600; font-size: 13.5px; margin-bottom: 3px; }
+  .evidence-card .meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-bottom: 6px; }
+  .evidence-card .finding { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
+  .evidence-card a { font-size: 11.5px; }
+  .score-pill {
+    font-family: var(--font-mono); font-size: 10.5px; padding: 2px 7px; border-radius: 20px;
+    border: 1px solid var(--line-strong); color: var(--ink-dim); float: right;
+  }
+
+  .chain-line { font-size: 12.5px; color: var(--ink-dim); margin: 6px 0; padding-left: 14px; border-left: 2px solid var(--line-strong); }
+  .chain-line b { color: var(--ink); font-weight: 500; }
+
+  .rec-card {
+    border: 1px solid var(--line-strong); border-radius: 11px; padding: 13px 15px; margin: 10px 0;
+    background: var(--bg-panel-alt); border-left: 3px solid var(--lichen);
+  }
+  .rec-card .action { font-family: var(--font-display); font-weight: 560; font-size: 15.5px; margin: 0 0 6px; }
+  .rec-card .field { font-size: 13px; margin: 6px 0; color: var(--ink-dim); }
+  .rec-card .field b { color: var(--ink); font-weight: 500; }
+  .conf {
+    display: inline-block; font-family: var(--font-mono); font-size: 10.5px; padding: 2px 8px;
+    border-radius: 20px; margin-left: 6px;
+  }
+  .conf.High { background: rgba(143,191,111,0.18); color: var(--lichen); }
+  .conf.Medium { background: rgba(217,164,65,0.18); color: var(--ochre); }
+  .conf.Low { background: rgba(193,99,58,0.18); color: var(--rust); }
+
+  footer.note {
+    margin-top: 24px; font-size: 12px; color: var(--ink-faint); line-height: 1.6;
+    border-top: 1px solid var(--line); padding-top: 16px;
+  }
+  footer.note code { font-family: var(--font-mono); background: var(--bg-panel-alt); padding: 1px 5px; border-radius: 4px; }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
+
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="kicker"><span class="dot"></span>DARUKAA.EARTH · BIODIVERSITY INTELLIGENCE</div>
+    <h1>Field Reasoning Console</h1>
+    <p class="sub">A retrieval-grounded environmental reasoning demo. Describe a site in your own words or enter known values — every recommendation traces back to a real, cited source and an explicit chain of cause and effect. No number here is invented by a language model.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="Conversation">
+      <div class="panel-head">
+        <h2>Describe the land</h2>
+        <span class="hint">multi-turn · remembers context</span>
+      </div>
+      <div id="chatlog"></div>
+      <div class="composer">
+        <div class="mode-toggle">
+          <button id="modeTextBtn" class="active" type="button">Describe in words</button>
+          <button id="modeFormBtn" type="button">Enter known values</button>
+        </div>
+
+        <div id="textMode">
+          <div id="textInputRow">
+            <textarea id="textInput" rows="2" placeholder="e.g. Biodiversity is declining on my land. It's a monoculture wheat farm, semi-arid, soil organic carbon around 0.3%."></textarea>
+            <button class="send" id="sendBtn" type="button">Send</button>
+          </div>
+          <div class="example-row">
+            <button class="chip" data-example="challenge">Load the challenge's example scenario</button>
+            <button class="chip" data-example="fragment">Ask about habitat fragmentation</button>
+            <button class="chip" data-example="riparian">Ask about a polluted stream</button>
+            <button class="chip" id="resetBtn">Reset conversation</button>
+          </div>
+        </div>
+
+        <div id="formMode" style="display:none;">
+          <div class="formgrid">
+            <label><span class="lbl">SOIL ORGANIC CARBON (%)</span><input type="number" step="0.01" id="f_soc" placeholder="0.3"></label>
+            <label><span class="lbl">SOIL PH</span><input type="number" step="0.1" id="f_ph" placeholder="6.5"></label>
+            <label><span class="lbl">RAINFALL</span>
+              <select id="f_rainfall"><option value="">—</option><option value="very_low">Very low</option><option value="low">Low</option><option value="moderate">Moderate</option><option value="high">High</option><option value="very_high">Very high</option></select>
+            </label>
+            <label><span class="lbl">LAND USE</span>
+              <select id="f_landuse"><option value="">—</option><option value="monoculture">Monoculture</option><option value="intercropping">Intercropping</option><option value="agroforestry">Agroforestry</option><option value="pasture_grazing">Pasture / grazing</option><option value="forest">Forest</option><option value="wetland">Wetland</option></select>
+            </label>
+            <label><span class="lbl">CROP TYPE</span><input type="text" id="f_crop" placeholder="wheat"></label>
+            <label><span class="lbl">REGION</span><input type="text" id="f_region" placeholder="semi-arid"></label>
+            <label class="wide"><span class="lbl">NOTES</span><input type="text" id="f_notes" placeholder="anything else worth mentioning"></label>
+          </div>
+          <button class="send" id="sendFormBtn" type="button">Submit values</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Reasoning trace">
+      <div class="panel-head">
+        <h2>How this was reasoned</h2>
+        <span class="hint" id="backendLabel">lexical retrieval · 12 sources</span>
+      </div>
+
+      <div class="horizon">
+        <div class="horizon-head"><span class="horizon-tag">O</span><h3>Observed variables</h3><span class="desc">extracted from input</span></div>
+        <div class="horizon-body" id="traceVars"><div class="horizon-empty">Nothing observed yet — describe the site to begin.</div></div>
+      </div>
+
+      <div class="horizon">
+        <div class="horizon-head"><span class="horizon-tag">A</span><h3>Retrieved evidence</h3><span class="desc">hybrid: metadata filter + cosine similarity</span></div>
+        <div class="horizon-body" id="traceEvidence"><div class="horizon-empty">No retrieval performed yet.</div></div>
+      </div>
+
+      <div class="horizon">
+        <div class="horizon-head"><span class="horizon-tag">B</span><h3>Reasoned relationships</h3><span class="desc">causal graph traversal</span></div>
+        <div class="horizon-body" id="traceChains"><div class="horizon-empty">No chains built yet.</div></div>
+      </div>
+
+      <div class="horizon">
+        <div class="horizon-head"><span class="horizon-tag">C</span><h3>Recommendations</h3><span class="desc">evidence-backed, structured</span></div>
+        <div class="horizon-body" id="traceRecs"><div class="horizon-empty">No recommendation generated yet.</div></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="note">
+    This is a browser-only build of the Darukaa RAG + reasoning pipeline: retrieval here runs as in-browser TF‑IDF cosine similarity over the same <code>knowledge_base.json</code> used by the Python backend (which uses real sentence-transformer embeddings when installed). Reasoning, evidence selection, and anti-fabrication rules are identical in both. See the accompanying GitHub repository for the full FastAPI service, tests, and documentation.
+  </footer>
+</div>
+
+<script>
+const KNOWLEDGE_BASE = [{"id": "kb001", "title": "Optimizing cover cropping application for sustainable crop production", "authors": "He, Q., Lu, C., Cowie, A., Zhao, S., Liu, D.L., Yi, B., Shi, L., Zhang, S., Qiu, T., Shi, Y., Huete, A., Siddique, K.H.M., Yu, Q., Li, L.", "year": 2025, "source": "npj Sustainable Agriculture", "doi": "10.1038/s44264-025-00050-8", "url": "https://researchers.une.edu.au/en/publications/optimizing-cover-cropping-application-for-sustainable-crop-produc/", "evidence_type": "global meta-analysis (3160 observations, 271 studies)", "domain": ["soil_health", "biodiversity"], "variables_studied": ["soil_organic_carbon", "land_use", "crop_yield"], "region": "global", "ecosystem": "cropland", "mechanism": "Cover crops add year-round living root biomass and residue, feeding soil microbial communities that build organic carbon; legumes additionally fix atmospheric nitrogen, which further stimulates microbial carbon processing.", "finding_summary": "Across a global synthesis, legume cover crops increased soil organic carbon (SOC) by 5.9% and crop yield by 16.0% relative to no cover crop; non-legume cover crops increased SOC by 4.0%. The SOC/yield gains came with a trade-off of 36.2% higher nitrous oxide (N2O) emissions, an important climate caveat.", "quantitative_effect": {"metric": "soil_organic_carbon", "direction": "increase", "magnitude": "legume +5.9%, non-legume +4.0% (relative)", "value_type": "published_measurement"}, "evidence_notes": "This is the strongest single source in the KB for a general SOC effect size because it pools thousands of field observations. Smaller regional studies below report larger effects (up to +23-38%), showing real site-to-site variability; the 5-9% figure is the safer global central estimate.", "confidence": "high"}, {"id": "kb002", "title": "Global meta-analysis of cover crop effects on soil organic carbon fractions", "authors": "Multiple authors (Rothamsted-affiliated synthesis)", "year": 2023, "source": "Peer-reviewed manuscript, global synthesis of 93 studies", "doi": null, "url": "https://repository.rothamsted.ac.uk/download/216956928f0bd7fee694d3fe96116b71e710f7a1204cc7952f135e08326f30e6/3510586/Manuscript_20231101.pdf", "evidence_type": "meta-analysis (93 peer-reviewed studies)", "domain": ["soil_health"], "variables_studied": ["soil_organic_carbon", "microbial_biomass_carbon"], "region": "global", "ecosystem": "cropland", "mechanism": "Cover crop residue and root exudates increase labile carbon fractions (microbial biomass carbon, dissolved and particulate organic carbon) before that carbon stabilizes into longer-term mineral-associated organic carbon, improving soil aggregation and microbial habitat.", "finding_summary": "Compared to bare soil, cover crops increased total SOC by 12% and increased seven measured SOC fractions, including microbial biomass carbon by 33% and particulate organic carbon by 15%. Effects were strongest in Entisols and Ultisols and grew with experimental duration.", "quantitative_effect": {"metric": "soil_organic_carbon", "direction": "increase", "magnitude": "+12% total SOC vs bare soil; microbial biomass carbon +33%", "value_type": "published_measurement"}, "evidence_notes": "Compares cover crop vs bare fallow (not vs a growing cash crop), so this is an upper-bound style comparison; effect grows with time under cover crop.", "confidence": "high"}, {"id": "kb003", "title": "Legume cover crops enhance soil organic carbon via microbial necromass in orchard alleyways", "authors": "Hu, Q., Jiang, T., Thomas, B.W., Chen, J., Xie, J., Hu, Y., Kong, F., Yang, Y., Chen, X., Zhang, Y., Shi, X.", "year": 2023, "source": "Soil and Tillage Research, Vol. 234", "doi": "10.1016/j.still.2023.105858", "url": "https://elsevier.forskningsportal.dk/display/pub-2-s2.0-85169015151", "evidence_type": "multi-site regional field study (7 orchards, China)", "domain": ["soil_health"], "variables_studied": ["soil_organic_carbon", "microbial_activity"], "region": "China (orchard systems)", "ecosystem": "orchard / perennial cropland", "mechanism": "Legume cover crops raise dissolved organic carbon and nitrogen availability, which drives greater microbial biomass and turnover; microbial necromass (dead microbial biomass) becomes a major building block of stable soil carbon.", "finding_summary": "Legume cover crops increased SOC by 23% versus bare-soil control plots, compared to only 2% for non-legume cover crops in the same orchards, driven largely by bacterial and fungal necromass carbon accumulation.", "quantitative_effect": {"metric": "soil_organic_carbon", "direction": "increase", "magnitude": "legume +23% vs +2% non-legume (site-specific)", "value_type": "published_measurement"}, "evidence_notes": "Effect size is much larger than the global meta-analysis (kb001) — a reminder that local soil type, climate, and cropping system strongly moderate outcomes; treat the 23% figure as a plausible upper range for favorable conditions, not a universal constant.", "confidence": "medium"}, {"id": "kb004", "title": "Agroforestry: an elixir for soil health management and carbon sequestration", "authors": "Sivakumar, K., Manimaran, G., Tilak, M., Ramah, K., Sivasakthivelan, P., Rogan, H.B., Vishal, R.", "year": 2025, "source": "Review, AGRIS/FAO-indexed", "doi": null, "url": "https://agris.fao.org/search/fr/records/68517898aab9439e79fcc35f", "evidence_type": "systematic review", "domain": ["soil_health", "climate", "biodiversity"], "variables_studied": ["soil_organic_carbon", "land_use", "habitat_diversity"], "region": "global", "ecosystem": "agroforestry systems (alley cropping, silvopasture)", "mechanism": "Deep-rooted trees add below-ground biomass carbon and litter beyond what annual crops reach, improve nutrient cycling and water retention, and add structural/habitat diversity that annual monocultures lack.", "finding_summary": "Reviewed estimates show agroforestry systems can sequester roughly 0.29 to 15.2 Mg C per hectare per year depending on system type (alley cropping, silvopasture, etc.), soil, and climate, alongside improved nitrogen use efficiency and reduced erosion.", "quantitative_effect": {"metric": "soil_organic_carbon", "direction": "increase", "magnitude": "0.29-15.2 Mg C ha-1 yr-1 (wide range, system-dependent)", "value_type": "model_derived_estimate"}, "evidence_notes": "Wide range reflects genuinely high variability across system designs; report as a range, not a point estimate, when advising a specific farm.", "confidence": "medium"}, {"id": "kb005", "title": "Agroforestry system improves soil carbon and nitrogen stocks after land-use change in the Brazilian semi-arid region", "authors": "Tonucci, R.G., Vogado, R.F., Silva, R.D., Pompeu, R.C.F.F., Oda-Souza, M., Souza, H.A. de", "year": 2023, "source": "Revista Brasileira de Ciência do Solo, 47, e0220124", "doi": "10.36783/18069657rbcs20220124", "url": "https://www.rbcsjournal.org/?p=8543", "evidence_type": "regional field study (semi-arid Brazil, Caatinga biome)", "domain": ["soil_health", "land_use"], "variables_studied": ["soil_organic_carbon", "land_use", "rainfall"], "region": "semi-arid Brazil (Caatinga biome)", "ecosystem": "semi-arid cropland / agroforestry", "mechanism": "Retaining native woody rows within a cropped semi-arid field maintains deeper root systems and litter input through the dry season, sustaining soil carbon and nitrogen stocks that a cleared monoculture loses.", "finding_summary": "Agroforestry systems that retained native woody forest rows (33-66% of the plot) showed improved soil carbon and nitrogen stocks at depth compared to cleared intercropping-only plots in a semi-arid region, directly relevant to low-rainfall monoculture settings.", "quantitative_effect": {"metric": "soil_organic_carbon", "direction": "increase", "magnitude": "improved vs monoculture intercropping (study reports stocks, not a single %)", "value_type": "published_measurement"}, "evidence_notes": "Directly relevant to semi-arid, low-organic-carbon, monoculture scenarios similar to the hackathon's example use case.", "confidence": "high"}, {"id": "kb006", "title": "Is habitat fragmentation bad for biodiversity? (and the Fletcher et al. 2018 rebuttal)", "authors": "Fahrig, L. (2017 review); Fletcher, R.J. et al. (2018 rebuttal)", "year": 2017, "source": "Biological Conservation (review + published rebuttal)", "doi": null, "url": "https://www.glel.carleton.ca/PDF/webDump/19FahrigetalBiolConserv.pdf", "evidence_type": "systematic review + contested rebuttal (contradictory evidence, preserved intentionally)", "domain": ["biodiversity", "land_use"], "variables_studied": ["habitat_diversity", "land_use"], "region": "global (landscape-scale empirical studies)", "ecosystem": "multiple", "mechanism": "Habitat AMOUNT loss removes resources and population capacity directly. Habitat FRAGMENTATION per se (splitting the same total habitat area into more, smaller patches) is a separate, more debated effect on edge exposure, connectivity, and generalist vs. specialist species response.", "finding_summary": "Habitat loss is uncontested as harmful to biodiversity. But fragmentation independent of habitat amount is genuinely disputed in the literature: Fahrig's review found most landscape-scale responses were non-significant, and of significant ones, most were positive; Fletcher et al. (2018) directly dispute this reading of the evidence and argue fragmentation per se is generally harmful.", "quantitative_effect": {"metric": "habitat_diversity", "direction": "loss_uncontested_fragmentation_per_se_disputed", "magnitude": "not a single number - active scientific disagreement", "value_type": "qualitative_inference"}, "evidence_notes": "Deliberately kept as contested evidence. The system should never claim 'fragmentation always reduces species richness by X%' - that would be a fabricated certainty the literature does not support. It should instead say habitat AMOUNT is the safer, well-supported lever.", "confidence": "low-to-medium (genuine scientific disagreement)"}, {"id": "kb007", "title": "Riparian Buffer Width, Vegetative Cover, and Nitrogen Removal Effectiveness (literature synthesis)", "authors": "North Carolina Department of Environmental Quality, drawing on Osborne & Kovacic (1993) and Neuse basin field research", "year": 2016, "source": "NC DEQ riparian buffer science review", "doi": null, "url": "https://www.deq.nc.gov/water-resources/planning-section/nonpoint/nccnbufferlitreview2016/download", "evidence_type": "government literature synthesis of peer-reviewed field studies", "domain": ["water", "biodiversity", "human_impact"], "variables_studied": ["water_availability", "pollution", "habitat_diversity"], "region": "southeastern USA (Neuse River basin) + broader literature", "ecosystem": "riparian / freshwater edge", "mechanism": "Vegetated buffer strips along waterways slow surface runoff, let sediment settle, and support root-zone microbial denitrification that converts excess nitrate to inert N2 gas before it reaches the stream; buffer vegetation also adds wildlife habitat and shades water to moderate temperature.", "finding_summary": "Buffers of 100-165 ft width reduced total nitrogen loading to streams by up to 85% or more; narrower buffers were markedly less effective (49 ft buffers reduced nitrogen by 48%, 26 ft buffers by only 28% in Neuse basin research), showing effectiveness scales strongly with width.", "quantitative_effect": {"metric": "pollution", "direction": "decrease", "magnitude": "26ft:-28% N, 49ft:-48% N, 100-165ft: up to -85% N", "value_type": "published_measurement"}, "evidence_notes": "Width-response relationship is unusually well quantified for a water-quality intervention; use with land-use and biodiversity variables together since it also restores habitat corridors.", "confidence": "high"}, {"id": "kb008", "title": "Drylands and Land Degradation (issues brief, drawing on IPCC/UNCCD assessments)", "authors": "IUCN (International Union for Conservation of Nature)", "year": 2017, "source": "IUCN Issues Brief", "doi": null, "url": "https://iucn.org/resources/issues-brief/drylands-and-land-degradation", "evidence_type": "policy/scientific assessment synthesis", "domain": ["climate", "biodiversity", "human_impact"], "variables_studied": ["rainfall", "land_use", "human_impact"], "region": "global drylands", "ecosystem": "drylands / semi-arid & arid", "mechanism": "Deforestation, overgrazing, and unsustainable cultivation strip dryland vegetation cover; without cover, soil erodes and loses nutrients and moisture-holding capacity, which directly kills the soil bacteria, fungi, and insects that underpin dryland food webs - a mutually reinforcing (cause AND outcome) decline loop.", "finding_summary": "An estimated 25-35% of the world's drylands are already degraded (desertified), affecting over 250 million people directly; soil biodiversity loss is simultaneously a cause and a consequence of that degradation.", "quantitative_effect": {"metric": "land_use", "direction": "degradation", "magnitude": "25-35% of global drylands already degraded", "value_type": "published_measurement"}, "evidence_notes": "Global figure, not farm-specific - use as context for regional risk, not as a site-level prediction.", "confidence": "high"}, {"id": "kb009", "title": "IPCC Special Report on Climate Change and Land (SRCCL)", "authors": "Intergovernmental Panel on Climate Change", "year": 2019, "source": "IPCC Special Report", "doi": null, "url": "https://www.ipcc.ch/srccl/", "evidence_type": "IPCC scientific assessment report", "domain": ["climate", "soil_health", "human_impact"], "variables_studied": ["temperature", "rainfall", "soil_organic_carbon", "land_use"], "region": "global", "ecosystem": "multiple", "mechanism": "Degraded land has reduced vegetation and organic matter, lowering its capacity to absorb and store carbon; this weakens a natural climate buffer, which in turn worsens the heat and drought stress that further degrades land - a reinforcing feedback loop between land condition and climate.", "finding_summary": "The IPCC concludes land degradation reduces productivity and the soil's ability to absorb carbon, which exacerbates climate change, while climate change in turn worsens land degradation; some degradation can become irreversible if action is delayed, making early, sustainable land management important.", "quantitative_effect": {"metric": "soil_organic_carbon", "direction": "decrease_under_degradation", "magnitude": "qualitative - no single global percentage given", "value_type": "qualitative_inference"}, "evidence_notes": "High-level assessment consensus; use for framing urgency and feedback loops, not for site-specific numeric estimates.", "confidence": "high (for the qualitative mechanism), not applicable (no numeric estimate)"}, {"id": "kb010", "title": "Conservation agriculture and reduced tillage - established soil science consensus", "authors": "FAO Conservation Agriculture programme (general scientific consensus, multiple primary studies)", "year": 2023, "source": "FAO Conservation Agriculture guidance", "doi": null, "url": "https://www.fao.org/conservation-agriculture/en/", "evidence_type": "qualitative/established consensus (no single invented statistic)", "domain": ["soil_health", "biodiversity"], "variables_studied": ["soil_moisture", "soil_organic_carbon", "habitat_diversity"], "region": "global", "ecosystem": "cropland", "mechanism": "Minimizing soil disturbance preserves fungal hyphal networks and soil aggregate structure, which protects organic carbon from rapid oxidation, improves water infiltration and moisture retention, and preserves habitat for soil macrofauna (earthworms, ground beetles) that till and fertilize soil biologically.", "finding_summary": "Reduced/no-till combined with permanent soil cover and crop rotation (FAO's three conservation agriculture principles) is well established to improve soil structure, water infiltration, and soil biodiversity relative to intensive tillage, though the magnitude is highly soil- and climate-dependent and not reduced to one universal number.", "quantitative_effect": {"metric": "soil_moisture", "direction": "increase", "magnitude": "directionally positive; magnitude is site-dependent, not quantified here", "value_type": "qualitative_inference"}, "evidence_notes": "Intentionally left unquantified rather than inventing a percentage - this is a case where the system should say 'evidence supports the direction, not a specific number' per the project's anti-fabrication rule.", "confidence": "medium (qualitative direction well-supported; no safe universal magnitude)"}, {"id": "kb011", "title": "Crop diversification, polyculture and pollinator/pest-regulation services - established agroecology consensus", "authors": "General agroecology literature synthesis (FAO agrobiodiversity programme)", "year": 2023, "source": "FAO Biodiversity and agriculture guidance", "doi": null, "url": "https://www.fao.org/biodiversity/en/", "evidence_type": "qualitative/established consensus", "domain": ["biodiversity", "land_use"], "variables_studied": ["habitat_diversity", "land_use"], "region": "global", "ecosystem": "cropland", "mechanism": "Monocultures offer a single resource pulse in time and space, favoring a narrow set of pest and generalist species; interplanting multiple crop species and flowering strips provides staggered floral resources and habitat structure that supports a wider range of pollinators and natural pest predators, which in turn reduces monoculture-associated pest outbreaks.", "finding_summary": "Diversifying monocultures via intercropping, crop rotation, or flowering strips is well-established in agroecology to increase functional biodiversity (pollinators, natural enemies of pests) relative to single-crop systems, though effect sizes vary widely by crop, region, and landscape context.", "quantitative_effect": {"metric": "habitat_diversity", "direction": "increase", "magnitude": "directionally positive; magnitude not quantified here (highly context-dependent)", "value_type": "qualitative_inference"}, "evidence_notes": "Paired with kb001/kb002/kb003 (cover crops) and kb004/kb005 (agroforestry) for monoculture wheat / semi-arid scenarios like the hackathon's example use case.", "confidence": "medium"}, {"id": "kb012", "title": "Soil pH and nutrient/microbial availability - established soil chemistry consensus", "authors": "General soil science consensus (FAO Global Soil Partnership)", "year": 2023, "source": "FAO Global Soil Partnership guidance", "doi": null, "url": "https://www.fao.org/global-soil-partnership/en/", "evidence_type": "qualitative/established consensus", "domain": ["soil_health"], "variables_studied": ["soil_ph", "soil_organic_carbon"], "region": "global", "ecosystem": "cropland", "mechanism": "Most agricultural plants and soil microbes function best in a moderately acidic-to-neutral pH range (roughly 6.0-7.5); outside that range, key nutrients (phosphorus, and micronutrients at high pH; aluminum toxicity risk at low pH) become less available or toxic, suppressing both plant growth and microbial/faunal activity that drives organic matter cycling.", "finding_summary": "Extreme soil pH (strongly acidic or alkaline) is well established to suppress nutrient availability and microbial activity, indirectly constraining the soil organic carbon buildup and plant productivity that underpin aboveground biodiversity.", "quantitative_effect": {"metric": "soil_organic_carbon", "direction": "context_dependent", "magnitude": "qualitative - depends on specific pH deviation and crop", "value_type": "qualitative_inference"}, "evidence_notes": "Used to flag when a reported soil pH value is a likely constraint worth raising even if no other variable was mentioned.", "confidence": "high (qualitative textbook consensus)"}];
+const INTERACTION_GRAPH = {"schema_version": "1.0", "notes": "This is the causal-mechanism graph the reasoning engine walks. Each edge names a directional ecological relationship between two tracked variables, in plain language, with a pointer to which knowledge_base.json ids substantiate it. The reasoning engine never invents a new edge at answer time - it can only cite edges declared here, which keeps 'multi-metric reasoning' auditable instead of an LLM improvising causal claims.", "variables": [{"key": "soil_ph", "label": "Soil pH", "unit": null, "category": "soil"}, {"key": "soil_organic_carbon", "label": "Soil Organic Carbon", "unit": "%", "category": "soil"}, {"key": "soil_moisture", "label": "Soil Moisture", "unit": "qualitative or %", "category": "soil"}, {"key": "land_use", "label": "Land Use / Land Cover", "unit": "categorical", "category": "land"}, {"key": "crop_type", "label": "Crop Type / Cropping System", "unit": "categorical", "category": "land"}, {"key": "habitat_diversity", "label": "Habitat / Structural Diversity", "unit": "qualitative", "category": "biodiversity"}, {"key": "species_richness", "label": "Species Richness", "unit": "qualitative or count", "category": "biodiversity"}, {"key": "temperature", "label": "Temperature", "unit": "°C", "category": "climate"}, {"key": "rainfall", "label": "Rainfall", "unit": "mm or qualitative", "category": "climate"}, {"key": "water_availability", "label": "Water Availability", "unit": "qualitative", "category": "water"}, {"key": "pollution", "label": "Pollution", "unit": "qualitative", "category": "human_impact"}, {"key": "deforestation", "label": "Deforestation / Habitat Loss", "unit": "qualitative", "category": "human_impact"}], "edges": [{"id": "e1", "from": "soil_organic_carbon", "to": "species_richness", "relationship": "Soil organic carbon feeds microbial and invertebrate communities directly and improves plant productivity indirectly, raising the resource base that supports higher trophic diversity.", "supporting_kb": ["kb001", "kb002", "kb003"]}, {"id": "e2", "from": "rainfall", "to": "soil_moisture", "relationship": "Rainfall is the primary input to soil moisture; low or erratic rainfall directly lowers moisture availability, especially in semi-arid soils with low organic carbon (which hold less water).", "supporting_kb": ["kb008", "kb009"]}, {"id": "e3", "from": "soil_moisture", "to": "species_richness", "relationship": "Soil moisture constrains which plant and soil-faunal species can survive at a site; chronic moisture stress filters out moisture-sensitive species, narrowing richness.", "supporting_kb": ["kb008", "kb010"]}, {"id": "e4", "from": "land_use", "to": "habitat_diversity", "relationship": "Converting structurally complex land cover (forest, agroforestry, mixed cropping) to uniform monoculture removes vertical and horizontal habitat structure that many species depend on.", "supporting_kb": ["kb004", "kb005", "kb011"]}, {"id": "e5", "from": "habitat_diversity", "to": "species_richness", "relationship": "More structurally and compositionally diverse habitat supports more ecological niches, generally supporting more species - though the effect of patch fragmentation specifically (as opposed to habitat amount) is scientifically contested.", "supporting_kb": ["kb006", "kb011"]}, {"id": "e6", "from": "crop_type", "to": "soil_organic_carbon", "relationship": "Continuous monoculture with bare-soil periods depletes soil organic carbon over time; cover cropping, intercropping, or agroforestry keeps living roots in the ground and adds residue, building carbon back up.", "supporting_kb": ["kb001", "kb002", "kb003", "kb004", "kb005"]}, {"id": "e7", "from": "deforestation", "to": "habitat_diversity", "relationship": "Removing woody/perennial vegetation eliminates structural habitat layers and increases edge exposure and erosion, degrading remaining habitat quality even where some vegetation remains.", "supporting_kb": ["kb008", "kb009"]}, {"id": "e8", "from": "pollution", "to": "water_availability", "relationship": "Nutrient and sediment pollution reduce usable clean water and can trigger algal blooms that further degrade aquatic habitat quality; vegetated buffers intercept this pollution before it reaches waterways.", "supporting_kb": ["kb007"]}, {"id": "e9", "from": "water_availability", "to": "species_richness", "relationship": "Clean, adequate water availability is a baseline requirement for aquatic and riparian species; pollution or scarcity directly filters which species can persist.", "supporting_kb": ["kb007"]}, {"id": "e10", "from": "temperature", "to": "soil_moisture", "relationship": "Higher temperatures increase evapotranspiration, drawing down soil moisture faster for a given amount of rainfall, compounding drought stress in already low-rainfall regions.", "supporting_kb": ["kb008", "kb009"]}, {"id": "e11", "from": "soil_ph", "to": "soil_organic_carbon", "relationship": "Extreme soil pH suppresses microbial and root activity, slowing the biological processes that build and stabilize soil organic carbon.", "supporting_kb": ["kb012"]}, {"id": "e12", "from": "soil_organic_carbon", "to": "water_availability", "relationship": "Soil organic carbon improves soil aggregate structure and water-holding capacity, so higher SOC lets a soil retain more plant-available water from a given rainfall event.", "supporting_kb": ["kb010"]}]};
+// ============================================================================
+// DARUKAA FIELD REASONING CONSOLE — client-side pipeline
+// Mirrors backend/app/{reasoning,rag,conversation}/*.py logic exactly, so
+// behavior here is representative of the Python service, not a toy stand-in.
+// KNOWLEDGE_BASE and INTERACTION_GRAPH are injected above this block, built
+// directly from data/knowledge_base.json and data/variable_interactions.json
+// (see the repo's README for how these two files stay in sync).
+// ============================================================================
+
+const CRITICAL_VARIABLES = ["soil_organic_carbon", "rainfall", "land_use"];
+
+const CLARIFY_PROMPTS = {
+  soil_organic_carbon: "What is the soil organic carbon percentage (or your best estimate) for this land?",
+  rainfall: "How would you describe the rainfall pattern here — very low, low, moderate, high, or very high?",
+  land_use: "What is the current land use / cropping system — e.g. monoculture, intercropping, agroforestry, pasture, or forest?",
+  soil_ph: "Do you know the soil pH?",
+  soil_moisture: "How would you describe current soil moisture — dry, moderate, or consistently moist?",
+};
+
+// ---------------------------------------------------------------------------
+// 1. Query Understanding / Variable Extraction (mirrors variable_extractor.py)
+// ---------------------------------------------------------------------------
+const RAINFALL_WORDS = {
+  very_low: ["very low rainfall", "rainfall is very low", "almost no rain", "drought"],
+  low: ["low rainfall", "rainfall is low", "semi-arid", "semiarid", "dry region", "arid"],
+  moderate: ["moderate rainfall", "rainfall is moderate", "average rainfall"],
+  high: ["high rainfall", "rainfall is high", "wet region", "monsoon"],
+  very_high: ["very high rainfall", "rainfall is very high", "extremely wet"],
+};
+const LAND_USE_WORDS = {
+  monoculture: ["monoculture", "single crop", "mono-crop", "mono crop"],
+  intercropping: ["intercropping", "inter-cropping", "mixed cropping"],
+  agroforestry: ["agroforestry", "agro-forestry", "alley cropping", "silvopasture"],
+  pasture_grazing: ["pasture", "grazing", "rangeland", "livestock grazing"],
+  forest: ["forest", "woodland"],
+  wetland: ["wetland", "marsh", "swamp"],
+};
+const CROPS = ["wheat", "maize", "corn", "rice", "cotton", "soybean", "sorghum", "millet", "barley"];
+
+function matchKeywordSet(textLower, mapping) {
+  for (const key in mapping) {
+    for (const phrase of mapping[key]) {
+      if (textLower.includes(phrase)) return key;
+    }
+  }
+  return null;
+}
+
+function extractFromText(text) {
+  const found = {};
+  const t = text.toLowerCase();
+
+  let m = text.match(/([0-9]+(?:\.[0-9]+)?)\s*%[^a-zA-Z]{0,10}(soil\s+organic\s+carbon|soc|organic\s+carbon)/i);
+  if (m) { found.soil_organic_carbon = parseFloat(m[1]); }
+  else {
+    m = text.match(/(soil\s+organic\s+carbon|soc|organic\s+carbon)[^0-9%]{0,15}([0-9]+(?:\.[0-9]+)?)\s*%/i);
+    if (m) found.soil_organic_carbon = parseFloat(m[2]);
+  }
+
+  m = text.match(/\b(?:soil\s+)?ph\s*(?:of|is|=|:)?\s*([0-9]+(?:\.[0-9]+)?)\b/i);
+  if (m) { const v = parseFloat(m[1]); if (v >= 0 && v <= 14) found.soil_ph = v; }
+
+  m = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(?:°\s*c|deg(?:rees)?\s*c|celsius)\b/i);
+  if (m) found.temperature = parseFloat(m[1]);
+
+  let rainfall = matchKeywordSet(t, RAINFALL_WORDS);
+  if (!rainfall) {
+    m = text.match(/rainfall\b(?:[^.]{0,25})\b(very low|very high|low|moderate|high)\b/i);
+    if (m) {
+      const map = { "very low": "very_low", "low": "low", "moderate": "moderate", "high": "high", "very high": "very_high" };
+      rainfall = map[m[1].toLowerCase()];
+    }
+  }
+  if (rainfall) found.rainfall = rainfall;
+
+  const landUse = matchKeywordSet(t, LAND_USE_WORDS);
+  if (landUse) found.land_use = landUse;
+
+  if (["deforestation", "clear-cut", "clearcut", "cleared forest", "logging"].some(w => t.includes(w))) found.deforestation = "present";
+  if (["pollution", "pesticide runoff", "fertilizer runoff", "agrochemical", "contamina"].some(w => t.includes(w))) found.pollution = "present";
+  if (["dry soil", "low soil moisture", "parched", "drought-stressed soil"].some(w => t.includes(w))) found.soil_moisture = "low";
+
+  for (const crop of CROPS) { if (t.includes(crop)) { found.crop_type = crop; break; } }
+
+  return found;
+}
+
+function extractFromForm(f) {
+  const found = {};
+  if (f.soc !== "" && f.soc != null) found.soil_organic_carbon = parseFloat(f.soc);
+  if (f.ph !== "" && f.ph != null) found.soil_ph = parseFloat(f.ph);
+  if (f.rainfall) found.rainfall = f.rainfall;
+  if (f.landuse) found.land_use = f.landuse;
+  if (f.crop) found.crop_type = f.crop;
+  if (f.region) found.region = f.region;
+  return found;
+}
+
+function missingCriticalVariables(knownKeys) {
+  return CRITICAL_VARIABLES.filter(v => !knownKeys.includes(v));
+}
+
+// ---------------------------------------------------------------------------
+// 2. Knowledge Retrieval (mirrors app/rag/retriever.py — TF-IDF path)
+// ---------------------------------------------------------------------------
+const STOPWORDS = new Set(("a an the of in on for to and or with without into onto is are was were be been being " +
+  "this that these those it its as at by from over under between within " + "study studies effect effects").split(" "));
+
+function tokenize(text) {
+  return (text.toLowerCase().match(/[a-z0-9]+/g) || []).filter(w => w.length > 2 && !STOPWORDS.has(w));
+}
+
+function docCorpusText(doc) {
+  return [
+    doc.title, doc.mechanism || "", doc.finding_summary || "",
+    "Variables: " + (doc.variables_studied || []).join(", "),
+    "Domain: " + (doc.domain || []).join(", "),
+    "Region: " + (doc.region || ""), "Ecosystem: " + (doc.ecosystem || ""),
+  ].join(". ");
+}
+
+let TFIDF_INDEX = null;
+function buildIndex() {
+  if (TFIDF_INDEX) return TFIDF_INDEX;
+  const docs = KNOWLEDGE_BASE;
+  const docTokens = docs.map(d => tokenize(docCorpusText(d)));
+  const df = {};
+  docTokens.forEach(tokens => { new Set(tokens).forEach(t => { df[t] = (df[t] || 0) + 1; }); });
+  const N = docs.length;
+  const idf = {};
+  Object.keys(df).forEach(t => { idf[t] = Math.log((N + 1) / (df[t] + 1)) + 1; });
+
+  function vectorize(tokens) {
+    const tf = {};
+    tokens.forEach(t => { tf[t] = (tf[t] || 0) + 1; });
+    const vec = {};
+    let norm = 0;
+    Object.keys(tf).forEach(t => {
+      const w = (tf[t] / tokens.length) * (idf[t] || 0);
+      vec[t] = w; norm += w * w;
+    });
+    norm = Math.sqrt(norm) || 1e-9;
+    Object.keys(vec).forEach(t => { vec[t] /= norm; });
+    return vec;
+  }
+
+  const docVecs = docTokens.map(vectorize);
+  TFIDF_INDEX = { docs, docVecs, vectorize };
+  return TFIDF_INDEX;
+}
+
+function cosineSim(vecA, vecB) {
+  let sum = 0;
+  const [small, big] = Object.keys(vecA).length < Object.keys(vecB).length ? [vecA, vecB] : [vecB, vecA];
+  Object.keys(small).forEach(t => { if (big[t]) sum += small[t] * big[t]; });
+  return sum;
+}
+
+function retrieve(queryText, variableKeys, topK = 6, minScore = 0.02) {
+  const idx = buildIndex();
+  const qVec = idx.vectorize(tokenize(queryText));
+  let candidates = idx.docs.map((d, i) => ({ doc: d, score: cosineSim(qVec, idx.docVecs[i]) }));
+
+  if (variableKeys && variableKeys.length) {
+    const filtered = candidates.filter(c => (c.doc.variables_studied || []).some(v => variableKeys.includes(v)));
+    if (filtered.length) candidates = filtered;
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  let results = candidates.filter(c => c.score >= minScore).slice(0, topK);
+  if (!results.length && candidates.length) results = [candidates[0]];
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// 3. Multi-Metric Reasoning (mirrors multi_metric_reasoner.py)
+// ---------------------------------------------------------------------------
+function buildChains(knownVariableKeys, maxHops = 3) {
+  const edgesByFrom = {};
+  INTERACTION_GRAPH.edges.forEach(e => { (edgesByFrom[e.from] = edgesByFrom[e.from] || []).push(e); });
+
+  const chains = [];
+  function dfs(path, currentVar, depth, visited) {
+    if (depth >= maxHops) return;
+    (edgesByFrom[currentVar] || []).forEach(edge => {
+      if (visited.has(edge.to)) return;
+      const newPath = [...path, edge];
+      chains.push(newPath);
+      dfs(newPath, edge.to, depth + 1, new Set([...visited, edge.to]));
+    });
+  }
+  new Set(knownVariableKeys).forEach(v => dfs([], v, 0, new Set([v])));
+
+  const seen = new Set();
+  const unique = [];
+  chains.sort((a, b) => b.length - a.length).forEach(c => {
+    const key = c.map(e => e.id).join(",");
+    if (!seen.has(key)) { seen.add(key); unique.push(c); }
+  });
+  return unique.slice(0, 6);
+}
+
+function summarizeRelationships(knownVariableKeys) {
+  return buildChains(knownVariableKeys).map(chain => {
+    const pathVars = [chain[0].from, ...chain.map(e => e.to)];
+    const arrow = pathVars.join(" → ");
+    const mech = chain.map(e => e.relationship).join(" Then: ");
+    return { arrow, mech };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 4. Recommendation Generation (mirrors recommendation_engine.py)
+// ---------------------------------------------------------------------------
+const ACTION_BY_KB = {
+  kb001: "Introduce a legume-based cover crop (e.g. cowpea, clover, vetch) in the off-season or between rows.",
+  kb002: "Maintain continuous cover cropping rather than leaving soil bare between cash-crop cycles.",
+  kb003: "Where a legume cover crop is already used, prioritize residue retention so necromass carbon can accumulate.",
+  kb004: "Convert a portion of the monoculture area to an alley-cropping or silvopastoral agroforestry layout.",
+  kb005: "Retain or reintroduce native woody rows/strips within the cropped area rather than clearing to full monoculture.",
+  kb006: "Prioritize protecting/expanding total habitat AREA first; treat patch shape/fragmentation as a secondary, less certain lever.",
+  kb007: "Establish or widen a vegetated riparian buffer strip (aim for ≥100 ft / 30 m where land allows) along adjacent waterways.",
+  kb008: "Prioritize soil-cover and erosion-control measures immediately — this region's baseline degradation risk is already elevated.",
+  kb009: "Treat soil-carbon-building interventions as climate adaptation, not just a biodiversity measure.",
+  kb010: "Shift to reduced/no-till with permanent soil cover and crop rotation (FAO's 3 conservation agriculture principles).",
+  kb011: "Diversify the monoculture with intercropped species or flowering field-margin strips to support pollinators.",
+  kb012: "Test and, if needed, amend soil pH toward the 6.0–7.5 range before investing in other soil-carbon interventions.",
+};
+const HORIZON_BY_KB = {
+  kb001: "Medium term (2–3 seasons)", kb002: "Medium to long term", kb003: "Medium term (multi-season)",
+  kb004: "Long term (multi-year)", kb005: "Long term (semi-arid biomass accrual is slow)",
+  kb006: "Long term (landscape-scale)", kb007: "Short to medium term (1–2 seasons)",
+  kb008: "Short term for erosion control; long term for full recovery", kb009: "Long term (climate feedback timescales)",
+  kb010: "Medium term (2–5 years)", kb011: "Short to medium term (within 1 season)", kb012: "Short term (within 1 season)",
+};
+
+function confidenceFor(doc, score) {
+  const et = doc.evidence_type || "";
+  let base = "Medium";
+  if (et.includes("meta-analysis") || et.includes("systematic review")) base = "High";
+  if (String(doc.confidence).includes("low")) base = "Low";
+  const explanation = `Top evidence is a ${et} (source-level confidence: ${doc.confidence}); retrieval similarity ${score.toFixed(2)}.` +
+    (doc.evidence_notes ? " Note: " + doc.evidence_notes : "");
+  return { level: base, explanation };
+}
+
+function generateRecommendations(knownVariables, maxRecs = 3, rawQueryText = "") {
+  const variableKeys = Object.keys(knownVariables);
+  const queryParts = variableKeys.map(k => `${k.replace(/_/g, " ")}: ${knownVariables[k]}`);
+  // Blend the user's actual question into the retrieval query (weighted by
+  // repeating it) so a follow-up like "how do I reduce water pollution"
+  // steers which evidence surfaces to the top, not just the accumulated
+  // known-variable state. This is what was missing before: recommendations
+  // were computed from state only and never re-ranked against what was
+  // actually just asked.
+  const freeText = (rawQueryText || "").trim();
+  const query = [freeText, freeText, queryParts.join("; ")].filter(Boolean).join(". ") || "general biodiversity improvement";
+  const results = retrieve(query, variableKeys, 6);
+
+  const seen = new Set();
+  const recs = [];
+  for (const r of results) {
+    const doc = r.doc;
+    if (seen.has(doc.id)) continue;
+    seen.add(doc.id);
+
+    const qty = doc.quantitative_effect || {};
+    let impact;
+    if (qty.value_type === "qualitative_inference") {
+      impact = `Direction: ${qty.direction || "uncertain"}. Magnitude: ${qty.magnitude || "not quantified — directional evidence only."}`;
+    } else {
+      impact = `${qty.magnitude || "see evidence"} (direction: ${qty.direction || "n/a"}; ${qty.value_type || "reported value"})`;
+    }
+    const conf = confidenceFor(doc, r.score);
+
+    recs.push({
+      action: ACTION_BY_KB[doc.id] || "Apply the evidence-based practice described below.",
+      reasoning: doc.finding_summary, mechanism: doc.mechanism,
+      metrics: doc.variables_studied || [], impact, horizon: HORIZON_BY_KB[doc.id] || "Medium term",
+      confidence: conf.level, confExplain: conf.explanation,
+      evidence: { id: doc.id, title: doc.title, source: doc.source, year: doc.year, url: doc.url, type: doc.evidence_type, score: r.score },
+    });
+    if (recs.length >= maxRecs) break;
+  }
+  return recs;
+}
+
+// ---------------------------------------------------------------------------
+// 5. Conversation memory (mirrors app/conversation/memory.py)
+// ---------------------------------------------------------------------------
+const SESSION_KEY = "darukaa_demo_session_v1";
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* storage unavailable — fall through to fresh session */ }
+  return { knownVariables: {}, askedQuestions: [], turns: [] };
+}
+function saveSession(state) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+}
+let SESSION = loadSession();
+
+// ---------------------------------------------------------------------------
+// 6. UI rendering
+// ---------------------------------------------------------------------------
+const $ = sel => document.querySelector(sel);
+const chatlog = $("#chatlog");
+const backendLabel = $("#backendLabel");
+backendLabel.textContent = "lexical (TF-IDF) retrieval · " + KNOWLEDGE_BASE.length + " sources";
+
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : "system");
+  div.innerHTML = `<div class="role">${role === "user" ? "you" : "darukaa"}</div><div class="bubble"></div>`;
+  div.querySelector(".bubble").textContent = text;
+  chatlog.appendChild(div);
+  chatlog.scrollTop = chatlog.scrollHeight;
+}
+
+function renderVars(known) {
+  const el = $("#traceVars");
+  const keys = Object.keys(known);
+  if (!keys.length) { el.innerHTML = '<div class="horizon-empty">Nothing observed yet.</div>'; return; }
+  el.innerHTML = keys.map(k => `<span class="varchip">${k.replace(/_/g, " ")}: <b>${known[k]}</b></span>`).join("");
+}
+
+function renderEvidence(recs) {
+  const el = $("#traceEvidence");
+  if (!recs.length) { el.innerHTML = '<div class="horizon-empty">No retrieval performed yet.</div>'; return; }
+  el.innerHTML = recs.map(r => `
+    <div class="evidence-card">
+      <span class="score-pill">sim ${r.evidence.score.toFixed(2)}</span>
+      <div class="title">${r.evidence.title}</div>
+      <div class="meta">${r.evidence.source}${r.evidence.year ? ", " + r.evidence.year : ""} · ${r.evidence.type}</div>
+      <div class="finding">${r.reasoning}</div>
+      ${r.evidence.url ? `<a href="${r.evidence.url}" target="_blank" rel="noopener">source ↗</a>` : ""}
+    </div>`).join("");
+}
+
+function renderChains(rels) {
+  const el = $("#traceChains");
+  if (!rels.length) { el.innerHTML = '<div class="horizon-empty">Provide 2+ variables to see connected reasoning.</div>'; return; }
+  el.innerHTML = rels.map(r => `<div class="chain-line"><b>${r.arrow}</b><br>${r.mech}</div>`).join("");
+}
+
+function renderRecs(recs) {
+  const el = $("#traceRecs");
+  if (!recs.length) { el.innerHTML = '<div class="horizon-empty">No recommendation generated yet.</div>'; return; }
+  el.innerHTML = recs.map(r => `
+    <div class="rec-card">
+      <p class="action">${r.action}<span class="conf ${r.confidence}">${r.confidence} confidence</span></p>
+      <div class="field"><b>Why:</b> ${r.reasoning}</div>
+      <div class="field"><b>Mechanism:</b> ${r.mechanism}</div>
+      <div class="field"><b>Impacted metrics:</b> ${r.metrics.join(", ")}</div>
+      <div class="field"><b>Expected impact:</b> ${r.impact}</div>
+      <div class="field"><b>Time horizon:</b> ${r.horizon}</div>
+      <div class="field"><b>Evidence:</b> ${r.evidence.title} (${r.evidence.source}${r.evidence.year ? ", " + r.evidence.year : ""})</div>
+    </div>`).join("");
+}
+
+// Builds the actual chat reply. This is the piece that was missing before:
+// the old version only ever restated the full accumulated variable state,
+// so two different questions with no new extractable variable (e.g. "how do
+// I reduce water pollution on my farm?") produced an identical-looking
+// reply. Now the reply leads with a direct answer synthesized from the
+// TOP retrieved recommendation for THIS turn's query (see generateRecommendations'
+// rawQueryText blending above), then only mentions variables that are new or
+// changed this turn, then asks any still-outstanding clarifying questions.
+function composeReply({ knownVariables, priorKnown, newlyAdded, missing, toAsk, recs }) {
+  const parts = [];
+
+  if (recs.length) {
+    const top = recs[0];
+    parts.push(`${top.action}\n${top.reasoning}`);
+    if (recs.length > 1) {
+      parts.push(`(${recs.length - 1} more option${recs.length > 2 ? "s" : ""} in the Recommendations panel — each with its own evidence and confidence.)`);
+    }
+  } else if (Object.keys(knownVariables).length === 0) {
+    parts.push('No environmental variables detected yet. Tell me about soil, land use, or rainfall — or ask a specific question, e.g. "how do I reduce water pollution on my farm?"');
+  } else {
+    parts.push("I don't have strong matching evidence for that specific question yet in this 12-source knowledge base — try adding more detail about soil, land use, rainfall, or water/pollution conditions and I'll re-check retrieval against it.");
+  }
+
+  if (newlyAdded.length) {
+    const desc = newlyAdded.map(k => `${k.replace(/_/g, " ")} = ${knownVariables[k]}`).join(", ");
+    parts.push(`Noted: ${desc}.`);
+  }
+
+  if (toAsk.length) {
+    parts.push(toAsk.map(q => "• " + q).join("\n"));
+  }
+
+  return parts.join("\n\n");
+}
+
+function runTurn(newVars, rawText = "") {
+  const priorKnown = Object.assign({}, SESSION.knownVariables);
+  SESSION.knownVariables = Object.assign({}, SESSION.knownVariables, newVars);
+  const knownKeys = Object.keys(SESSION.knownVariables);
+  const missing = missingCriticalVariables(knownKeys);
+  const allQuestions = missing.map(m => CLARIFY_PROMPTS[m]).filter(Boolean);
+  const toAsk = allQuestions.filter(q => !SESSION.askedQuestions.includes(q));
+  SESSION.askedQuestions = [...new Set([...SESSION.askedQuestions, ...toAsk])];
+
+  const rels = summarizeRelationships(knownKeys);
+  // Blend this turn's raw text into retrieval so a direct question (not just
+  // accumulated state) can steer which evidence surfaces first.
+  const recs = (knownKeys.length || rawText) ? generateRecommendations(SESSION.knownVariables, 3, rawText) : [];
+
+  renderVars(SESSION.knownVariables);
+  renderEvidence(recs);
+  renderChains(rels);
+  renderRecs(recs);
+
+  const newlyAdded = Object.keys(newVars || {}).filter(
+    k => priorKnown[k] === undefined || String(priorKnown[k]) !== String(newVars[k])
+  );
+  const reply = composeReply({ knownVariables: SESSION.knownVariables, priorKnown, newlyAdded, missing, toAsk, recs });
+  addMessage("system", reply);
+  saveSession(SESSION);
+}
+
+// ---------------------------------------------------------------------------
+// 7. Wiring
+// ---------------------------------------------------------------------------
+$("#sendBtn").addEventListener("click", () => {
+  const val = $("#textInput").value.trim();
+  if (!val) return;
+  addMessage("user", val);
+  $("#textInput").value = "";
+  const vars = extractFromText(val);
+  runTurn(vars, val);
+});
+$("#textInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#sendBtn").click(); }
+});
+
+$("#sendFormBtn").addEventListener("click", () => {
+  const f = {
+    soc: $("#f_soc").value, ph: $("#f_ph").value, rainfall: $("#f_rainfall").value,
+    landuse: $("#f_landuse").value, crop: $("#f_crop").value, region: $("#f_region").value,
+  };
+  const vars = extractFromForm(f);
+  const notes = $("#f_notes").value.trim();
+  const summaryParts = Object.entries(vars).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`);
+  const userText = (summaryParts.length ? summaryParts.join(", ") : "(no fields filled)") + (notes ? " — " + notes : "");
+  addMessage("user", userText);
+  if (notes) Object.assign(vars, extractFromText(notes));
+  runTurn(vars, notes || userText);
+});
+
+function resetSession(silent) {
+  SESSION = { knownVariables: {}, askedQuestions: [], turns: [] };
+  saveSession(SESSION);
+  chatlog.innerHTML = "";
+  renderVars({}); renderEvidence([]); renderChains([]); renderRecs([]);
+  if (!silent) addMessage("system", "Conversation reset. Describe a site, or load an example, to begin.");
+}
+
+document.querySelectorAll(".chip[data-example]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const kind = btn.getAttribute("data-example");
+    const examples = {
+      challenge: "Biodiversity is declining on my land. Soil organic carbon is 0.3%, rainfall is low, it's a monoculture wheat farm in a semi-arid region.",
+      fragment: "My district is breaking large forest patches into many smaller ones for new farm plots — will that reduce species richness?",
+      riparian: "There's agricultural runoff and pollution getting into the stream next to my field, and water availability for wildlife seems low.",
+    };
+    // Each example chip is a standalone scenario — reset first so an earlier
+    // scenario's variables (e.g. a leftover land_use from the fragmentation
+    // example) can't silently bleed into an unrelated new one.
+    resetSession(true);
+    $("#textInput").value = examples[kind];
+    $("#sendBtn").click();
+  });
+});
+
+$("#resetBtn").addEventListener("click", () => resetSession(false));
+
+$("#modeTextBtn").addEventListener("click", () => {
+  $("#modeTextBtn").classList.add("active"); $("#modeFormBtn").classList.remove("active");
+  $("#textMode").style.display = ""; $("#formMode").style.display = "none";
+});
+$("#modeFormBtn").addEventListener("click", () => {
+  $("#modeFormBtn").classList.add("active"); $("#modeTextBtn").classList.remove("active");
+  $("#formMode").style.display = ""; $("#textMode").style.display = "none";
+});
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+(function boot() {
+  if (Object.keys(SESSION.knownVariables).length) {
+    addMessage("system", "Welcome back — I still remember what you told me last time.");
+    renderVars(SESSION.knownVariables);
+    const knownKeys = Object.keys(SESSION.knownVariables);
+    renderChains(summarizeRelationships(knownKeys));
+    const recs = generateRecommendations(SESSION.knownVariables);
+    renderEvidence(recs); renderRecs(recs);
+  } else {
+    addMessage("system", "Tell me about a piece of land — soil, rainfall, land use, anything you're observing — and I'll ground every recommendation in retrieved, cited evidence. Try the example chip below if you'd like a running start.");
+  }
+})();
+</script>
+</body>
+</html>

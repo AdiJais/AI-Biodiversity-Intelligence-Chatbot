@@ -1,0 +1,24 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+numpy==1.26.4
+scikit-learn==1.5.2
+pytest==8.3.3
+httpx==0.27.2
+
+# Optional, heavier dependencies for the "true" embedding + vector DB path.
+# The app runs and passes tests without these (TF-IDF fallback in
+# app/rag/retriever.py), but installing them gives semantic (not just
+# lexical) retrieval, which is what we recommend for the live/demo backend.
+sentence-transformers==3.1.1
+faiss-cpu==1.8.0.post1
+
+# Optional: only needed if ANTHROPIC_API_KEY is set to enable the LLM
+# phrasing layer in app/reasoning/llm_augment.py
+anthropic==0.34.2
+
+# Optional: only needed if GROQ_API_KEY is set instead (Groq's OpenAI-
+# compatible endpoint is called directly with requests - no groq/openai SDK
+# needed). `requests` alone is also pulled in transitively by other deps,
+# but pinned explicitly here since llm_augment.py imports it directly.
+requests==2.32.3
